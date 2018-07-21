@@ -26,7 +26,7 @@
         android:layout_height="wrap_content" />
 
     <com.github.barteksc.pdfviewer.PDFView
-        android:visibility="gone"
+        android:visibility="visible"
         android:id="@+id/pdfView"
         android:layout_width="match_parent"
         android:layout_height="400dp"/>

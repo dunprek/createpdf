@@ -14,34 +14,26 @@ import android.widget.TextView
 import kotlinx.android.synthetic.main.activity_main.*
 import android.content.Intent
 import android.content.ActivityNotFoundException
+import android.graphics.Bitmap
+import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.core.net.toFile
 import com.github.barteksc.pdfviewer.PDFView
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener
 import com.github.barteksc.pdfviewer.listener.OnPageChangeListener
 import com.github.barteksc.pdfviewer.listener.OnPageErrorListener
-
-
-
-
-
-
+import java.io.*
+import java.util.*
 
 
 class MainActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteListener,
         OnPageErrorListener {
-    override fun onPageChanged(page: Int, pageCount: Int) {
 
-    }
-
-    override fun loadComplete(nbPages: Int) {
-        Log.e(TAG,pdfView.pageCount.toString())
-    }
-
-    override fun onPageError(page: Int, t: Throwable?) {
-    }
 
     val RequestPermissionCode = 7
 
@@ -54,7 +46,9 @@ class MainActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteLi
 
     private val REQUEST_CODE = 42
     private val TAG = MainActivity::class.java.simpleName
+    private val PDF_DIRECTORY = "/printerqoe_pdf_folder/"
 
+    lateinit var filePath: Uri
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,22 +96,26 @@ class MainActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteLi
     }
 
 
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == RESULT_OK && requestCode == REQUEST_CODE) {
             if (data == null) {
 //                showToast(applicationContext, "gagal mengambil gambar")
                 return
             }
-            val filePath = data.data
+            filePath = data.data
+
+
+            pdfFileName = getFileName(filePath)
 
 
 
 
-            Log.e(TAG,filePath.toString())
-//            uploadPhoto()
 
-            displayFromUri(filePath)
+            Log.e(TAG, "PATH FILE " + RealPathUtil.getRealPathFromURI_API19(applicationContext,filePath))
+
+
+            createFolder()
+//            displayFromUri(filePath)
 
         } else {
 //            showToast(applicationContext, "gagal mengambil gambar")
@@ -125,36 +123,7 @@ class MainActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteLi
     }
 
 
-
-
-
-
-
-
-
-
-    private fun displayFromUri(uri: Uri) {
-        pdfFileName = getFileName(uri)
-
-        Log.e(TAG,pdfFileName)
-
-
-
-        pdfView.fromUri(uri)
-                .defaultPage(1)
-                .onPageChange(this)
-                .enableAnnotationRendering(true)
-                .onLoad(this)
-                .scrollHandle(DefaultScrollHandle(this))
-                .spacing(10) // in dp
-                .onPageError(this)
-                .load()
-
-
-    }
-
-
-    fun getFileName(uri: Uri?): String {
+    private fun getFileName(uri: Uri?): String {
         var result: String? = null
         if (uri != null) {
             if (uri.scheme == "content") {
@@ -162,6 +131,7 @@ class MainActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteLi
                 try {
                     if (cursor != null && cursor.moveToFirst()) {
                         result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+                        Log.d(TAG, "FILE NAME " + result)
                     }
                 } finally {
                     cursor?.close()
@@ -177,10 +147,13 @@ class MainActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteLi
     }
 
 
+
+
+
     private fun RequestMultiplePermission() {
 
         // Creating String Array with Permissions.
-        ActivityCompat.requestPermissions(this@MainActivity, arrayOf(CAMERA, READ_EXTERNAL_STORAGE), RequestPermissionCode)
+        ActivityCompat.requestPermissions(this@MainActivity, arrayOf(CAMERA, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE), RequestPermissionCode)
 
     }
 
@@ -214,6 +187,61 @@ class MainActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteLi
 
         return FirstPermissionResult == PackageManager.PERMISSION_GRANTED &&
                 SecondPermissionResult == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onPageChanged(page: Int, pageCount: Int) {
+
+    }
+
+    override fun loadComplete(nbPages: Int) {
+        Log.e(TAG, pdfView.pageCount.toString())
+    }
+
+    override fun onPageError(page: Int, t: Throwable?) {
+    }
+
+
+    fun createFolder() {
+        val pdfDirectory = File(
+                Environment.getExternalStorageDirectory().toString() + PDF_DIRECTORY)
+        // have the object build the directory structure, if needed.
+        if (!pdfDirectory.exists()) {
+            pdfDirectory.mkdirs()
+        }
+
+        try {
+            /*  val f = File(pdfDirectory, pdfFileName)
+              f.createNewFile()*/
+            /*  val fo = FileOutputStream(f)
+              fo.write(pdfFileName.toByteArray())
+              fo.close()
+              Log.d("TAG", "File Saved::--->" + f.getAbsolutePath())
+
+  */
+
+
+
+            val sourceFile =File(RealPathUtil.getRealPathFromURI_API19(applicationContext,filePath))
+            val destinationFile = File(RealPathUtil.getRealPathFromURI_API19(applicationContext,filePath))
+
+            Log.d(TAG,"MYSOURCE "+sourceFile)
+            Log.d(TAG,"MY DESTINATION "+pdfDirectory)
+
+            copy(sourceFile,destinationFile)
+        } catch (e1: IOException) {
+            e1.printStackTrace()
+        }
+    }
+
+    @Throws(IOException::class)
+    fun copy(src: File, dst: File) {
+        val instream = FileInputStream(src)
+        val outStream = FileOutputStream(dst)
+        val inChannel = instream.getChannel()
+        val outChannel = instream.getChannel()
+        inChannel.transferTo(0, inChannel.size(), outChannel)
+        instream.close()
+        outStream.close()
     }
 
 
